@@ -1,3 +1,4 @@
+// Package database provides Redis database connection management
 package database
 
 import (
@@ -14,6 +15,7 @@ import (
 
 var client *redis.Client
 
+// Init initializes Redis client with configuration from environment
 func Init(log *logrus.Logger) *redis.Client {
 	if err := godotenv.Load(); err != nil {
 		log.Warnf("Warning: Error loading .env file: %v", err)
@@ -38,7 +40,6 @@ func Init(log *logrus.Logger) *redis.Client {
 	_, err := client.Ping(ctx).Result()
 	if err != nil {
 		log.Errorf("Error connecting to Redis: %v", err)
-		// panic(fmt.Sprintf("Failed to connect to Redis: %v", err))
 	}
 	log.Infof("Redis connected successfully")
 	return client
@@ -51,6 +52,7 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
+// GetClient returns Redis client instance
 func GetClient(logger *logrus.Logger) *redis.Client {
 	if client == nil {
 		client = Init(logger)
