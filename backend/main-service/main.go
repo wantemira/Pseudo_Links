@@ -1,3 +1,4 @@
+// Package main is the entry point of the application
 package main
 
 import (
@@ -29,11 +30,15 @@ func main() {
 	logger.SetLevel(logrus.DebugLevel)
 	logger.Info("[ START ]")
 	redisClient := database.Init(logger)
-	defer redisClient.Close()
+	defer func() {
+		if err := redisClient.Close(); err != nil {
+			logger.Warnf("TestCreate: error with close %v", err)
+		}
+	}()
 
-	linkRepo := link.NewLinkRepository(redisClient)
-	linkService := link.NewLinkService(linkRepo)
-	linkHandler := link.NewLinkHandler(linkService)
+	linkRepo := link.NewRepository(redisClient)
+	linkService := link.NewService(linkRepo)
+	linkHandler := link.NewHandler(linkService)
 
 	router := gin.Default()
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -43,6 +48,7 @@ func main() {
 		linkGroup.GET("/get", linkHandler.GetPseudo)
 		linkGroup.DELETE("/delete", linkHandler.Delete)
 	}
+	router.GET("/:shortID", linkHandler.Redirect)
 	router.GET("/", func(c *gin.Context) {
 		c.String(http.StatusOK, "Привет, Gin!")
 	})
