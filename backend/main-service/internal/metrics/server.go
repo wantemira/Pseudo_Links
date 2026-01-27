@@ -1,3 +1,4 @@
+// Package metrics provides Prometheus metrics server
 package metrics
 
 import (
@@ -6,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// Listen starts metrics HTTP server
 func Listen(address string) error {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
