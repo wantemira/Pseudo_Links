@@ -5,15 +5,18 @@ import (
 	"main-service/internal/models"
 )
 
-type LinkService struct {
-	repo *LinkRepository
+// Service provides business logic for link operations
+type Service struct {
+	repo *Repository
 }
 
-func NewLinkService(repo *LinkRepository) *LinkService {
-	return &LinkService{repo: repo}
+// NewService creates new Service instance
+func NewService(repo *Repository) *Service {
+	return &Service{repo: repo}
 }
 
-func (s *LinkService) Create(originLink string) (string, error) {
+// Create generates short link for original URL
+func (s *Service) Create(originLink string) (string, error) {
 	if originLink == "" {
 		return "", fmt.Errorf("error: Empty link")
 	}
@@ -31,7 +34,8 @@ func (s *LinkService) Create(originLink string) (string, error) {
 	})
 }
 
-func (s *LinkService) GetLink(link string) (*models.Link, error) {
+// GetLink retrieves link by short URL
+func (s *Service) GetLink(link string) (*models.Link, error) {
 	if link == "" {
 		return nil, fmt.Errorf("error: Empty link")
 	}
@@ -39,7 +43,8 @@ func (s *LinkService) GetLink(link string) (*models.Link, error) {
 	return linkObject, err
 }
 
-func (s *LinkService) DeleteLink(originLink string) error {
+// DeleteLink removes link by original URL
+func (s *Service) DeleteLink(originLink string) error {
 	if originLink == "" {
 		return fmt.Errorf("error: Empty link")
 	}

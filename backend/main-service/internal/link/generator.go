@@ -1,3 +1,4 @@
+// Package link provides URL shortening functionality
 package link
 
 import (
@@ -10,5 +11,7 @@ func generatePseudoLink() string {
 	for i := range key {
 		key[i] = charset[rand.Intn(len(charset))]
 	}
-	return "https://short.ly/" + string(key) // Просто конкатенация
+	return "http://localhost:8080/" + string(key)
 }
+
+// "https://short.ly/" +

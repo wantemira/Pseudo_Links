@@ -31,8 +31,11 @@ func TestCreate(t *testing.T) {
 	if err != nil {
 		t.Errorf("TestCreate: error with send POST-request: %v", err)
 	}
-	defer response.Body.Close()
-
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("TestCreate: error with close %v", err)
+		}
+	}()
 	if response.StatusCode != http.StatusCreated {
 		t.Errorf("TestCreate: status code: %d (want %d)", response.StatusCode, http.StatusOK)
 	}
@@ -44,8 +47,11 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Errorf("TestGet: error with send GET-request: %v", err)
 	}
-	defer response.Body.Close()
-
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("TestCreate: error with close %v", err)
+		}
+	}()
 	if response.StatusCode != http.StatusOK {
 		t.Errorf("TestGet: status code: %d (want %d)", response.StatusCode, http.StatusOK)
 	}
@@ -62,8 +68,11 @@ func TestDelete(t *testing.T) {
 	if err != nil {
 		t.Errorf("TestDelete: error with send DELETE-request: %v", err)
 	}
-	defer response.Body.Close()
-
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("TestCreate: error with close %v", err)
+		}
+	}()
 	if response.StatusCode != http.StatusOK {
 		t.Errorf("TestDelete: status code: %d (want %d)", response.StatusCode, http.StatusOK)
 	}

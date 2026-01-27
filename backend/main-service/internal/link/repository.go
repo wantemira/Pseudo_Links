@@ -9,15 +9,18 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type LinkRepository struct {
+// Repository handles link data persistence
+type Repository struct {
 	client *redis.Client
 }
 
-func NewLinkRepository(client *redis.Client) *LinkRepository {
-	return &LinkRepository{client: client}
+// NewRepository creates new Repository instance
+func NewRepository(client *redis.Client) *Repository {
+	return &Repository{client: client}
 }
 
-func (r *LinkRepository) Create(link *models.Link) error {
+// Create saves new link to database
+func (r *Repository) Create(link *models.Link) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := r.client.Set(ctx, link.OriginLink, link.PseudoLink, 0).Err(); err != nil {
@@ -29,7 +32,8 @@ func (r *LinkRepository) Create(link *models.Link) error {
 	return nil
 }
 
-func (r *LinkRepository) Find(originLink string) (link *models.Link, err error) {
+// Find retrieves link by original URL
+func (r *Repository) Find(originLink string) (link *models.Link, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -47,7 +51,8 @@ func (r *LinkRepository) Find(originLink string) (link *models.Link, err error) 
 	}, nil
 }
 
-func (r *LinkRepository) Delete(originLink string) error {
+// Delete removes link from database
+func (r *Repository) Delete(originLink string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	pseudoLink, err := r.client.Get(ctx, originLink).Result()
@@ -66,7 +71,8 @@ func (r *LinkRepository) Delete(originLink string) error {
 
 }
 
-func (r *LinkRepository) Exist(originLink string) (bool, error) {
+// Exist checks if link exists in database
+func (r *Repository) Exist(originLink string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
