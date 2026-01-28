@@ -70,7 +70,6 @@ func main() {
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 
-	// ВАЖНО: Установи режим Gin ДО создания роутера
 	if os.Getenv("CI") == "true" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -90,12 +89,14 @@ func main() {
 	linkService := link.NewService(linkRepo)
 	linkHandler := link.NewHandler(linkService)
 
-	// ИЛИ используй ручное создание (гарантированно работает)
 	router := gin.New()
-	router.Use(gin.Logger())
-	router.Use(gin.Recovery())
 
-	// router := gin.Default() // Не используй Default() в CI
+	// ВАЖНО: Logger только НЕ в CI
+	if os.Getenv("CI") != "true" {
+		router.Use(gin.Logger())
+	}
+
+	router.Use(gin.Recovery())
 
 	if os.Getenv("CI") != "true" {
 		router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -119,13 +120,10 @@ func main() {
 	}()
 
 	logger.Infof("Run server :8080")
-	server := &http.Server{
-		Addr:    ":8080",
-		Handler: router,
-	}
 
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := router.Run("0.0.0.0:8080"); err != nil {
 		logger.Fatalf("Failed to run server: %v", err)
 	}
+
 	logger.Infof("[ STOP ]")
 }
