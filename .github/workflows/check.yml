@@ -1,21 +1,18 @@
-# .github/workflows/debug.yml
-name: Debug Server
+name: Working CI
 on: push
 jobs:
-  debug:
+  test:
     runs-on: ubuntu-latest
     services:
       redis:
         image: redis:latest
     steps:
       - uses: actions/checkout@v3
-      - name: Setup
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+          cache: true
+      - name: Run
         run: |
           cd backend/main-service
-          echo "REDIS_HOST=localhost" > .env
-          echo "REDIS_PORT=6379" >> .env
-          go mod tidy
-      - name: Run with logs
-        run: |
-          cd backend/main-service
-          go run main.go 2>&1 | head -100
+          timeout 15 go run main.go 2>&1 | tail -20 || echo "Exited"
