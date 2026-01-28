@@ -1,142 +1,67 @@
-name: Check
+name: Debug Server
 on: push
 jobs:
-  test:
+  debug:
     runs-on: ubuntu-latest
     services:
       redis:
         image: redis:latest
         ports:
           - 6379:6379
-        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
     
     steps:
       - name: Checkout
         uses: actions/checkout@v3
       
-      - name: Setup dependencies
+      - name: Setup
         run: |
           cd backend/main-service
           go mod download
       
-      - name: Check Redis logs
+      - name: Check Redis
         run: |
-          docker logs $(docker ps -q -f "ancestor=redis:latest") || true
+          echo "=== REDIS CHECK ==="
+          redis-cli -h localhost -p 6379 ping || echo "Redis ping failed"
       
-      - name: Wait for Redis to be ready
-        run: |
-          for i in {1..30}; do
-            if nc -z localhost 6379; then
-              echo "Redis is ready"
-              exit 0
-            fi
-            echo "Waiting for Redis..."
-            sleep 1
-          done
-          echo "Redis did not start"
-          exit 1
-      
-      # === ДИАГНОСТИКА: Что происходит при запуске ===
-      - name: Debug - Run server and capture ALL output
+      - name: Run server and FULL diagnostics
         run: |
           cd backend/main-service
-          echo "=== STARTING SERVER WITH TIMEOUT ==="
+          echo "=== STEP 1: RUN SERVER ==="
           
-          # Запускаем сервер в фоне, записываем ВСЁ
-          go run main.go > full_debug.log 2>&1 &
+          # Запускаем сервер с полным логированием
+          go run main.go > complete_debug.log 2>&1 &
           SERVER_PID=$!
-          echo $SERVER_PID > server.pid
+          echo "Server PID: $SERVER_PID"
           
-          # Ждем 3 секунды чтобы сервер запустился/упал
-          sleep 3
+          # Ждем 5 секунд
+          sleep 5
           
-          # Проверяем жив ли процесс
+          echo "=== STEP 2: CHECK PROCESS STATUS ==="
           if ps -p $SERVER_PID > /dev/null; then
-            echo "✅ Server process is running (PID: $SERVER_PID)"
+            echo "✅ Server process IS ALIVE"
           else
-            echo "❌ Server process DIED immediately"
-            echo "=== FULL DEBUG LOG ==="
-            cat full_debug.log
-            exit 1
+            echo "❌ Server process DIED"
           fi
-      
-      # === ДИАГНОСТИКА: Что в логах? ===
-      - name: Debug - Check server logs
-        run: |
-          cd backend/main-service
-          echo "=== SERVER LOGS (first 50 lines) ==="
-          cat full_debug.log | head -50 || echo "No log file"
-          echo ""
-          echo "=== LAST 20 LINES ==="
-          tail -20 full_debug.log 2>/dev/null || echo "Cannot tail log"
-      
-      # === ДИАГНОСТИКА: Какие порты слушает? ===
-      - name: Debug - Check listening ports
-        run: |
-          echo "=== LISTENING PORTS ==="
-          # Проверяем все порты
-          netstat -tulpn 2>/dev/null || ss -tulpn 2>/dev/null || echo "Cannot check ports"
-          echo ""
-          echo "=== SPECIFIC PORT 8080 ==="
-          # Проверяем конкретно 8080
-          if nc -z localhost 8080; then
-            echo "✅ Port 8080 is listening"
-          else
-            echo "❌ Port 8080 is NOT listening"
-            echo "Checking if server listens on different port:"
-            # Ищем какой порт слушает наш процесс
-            cd backend/main-service
-            SERVER_PID=$(cat server.pid 2>/dev/null || echo "")
-            if [ -n "$SERVER_PID" ]; then
-              netstat -tulpn 2>/dev/null | grep "$SERVER_PID" || ss -tulpn 2>/dev/null | grep "$SERVER_PID" || echo "Cannot find process ports"
-            fi
-          fi
-      
-      # === ДИАГНОСТИКА: Проверка HTTP endpoint ===
-      - name: Debug - Test HTTP connection
-        run: |
-          echo "=== TESTING HTTP ENDPOINT ==="
-          if nc -z localhost 8080; then
-            echo "Trying to connect to http://localhost:8080/"
-            curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://localhost:8080/ || echo "Curl failed"
-            echo "Trying /health or /ping:"
-            curl -s http://localhost:8080/health 2>/dev/null || curl -s http://localhost:8080/ping 2>/dev/null || echo "No health endpoint"
-          else
-            echo "Port 8080 not open, skipping HTTP test"
-          fi
-      
-      # === ОРИГИНАЛЬНАЯ ПРОВЕРКА (сохраняем) ===
-      - name: Wait for server to be ready (original logic)
-        run: |
-          for i in {1..15}; do
-            if nc -z localhost 8080; then
-              echo "Server is up"
-              exit 0
-            fi
-            echo "Waiting for server..."
-            sleep 1
-          done
-          echo "Server did not start"
           
-          # Показываем больше информации при падении
-          cd backend/main-service
-          echo "=== FAILURE DEBUG ==="
-          echo "Server PID: $(cat server.pid 2>/dev/null || echo 'none')"
-          echo "=== FULL SERVER LOGS ==="
-          cat full_debug.log 2>/dev/null || echo "No debug log"
-          exit 1
-      
-      - name: Run tests
-        run: |
-          cd backend/main-service/internal/link
-          go test -v
-      
-      - name: Stop server
-        if: always()
-        run: |
-          cd backend/main-service
-          if [ -f server.pid ]; then
-            kill $(cat server.pid) 2>/dev/null || true
-            rm -f server.pid
-          fi
-          rm -f full_debug.log server.log
+          echo "=== STEP 3: CHECK SERVER LOGS ==="
+          echo "--- First 30 lines ---"
+          head -30 complete_debug.log
+          echo "--- Last 30 lines ---"
+          tail -30 complete_debug.log
+          
+          echo "=== STEP 4: CHECK ALL PORTS ==="
+          echo "Listening ports:"
+          ss -tulpn 2>/dev/null || netstat -tulpn 2>/dev/null || echo "Cannot list ports"
+          
+          echo "=== STEP 5: CHECK SPECIFIC PROCESS PORTS ==="
+          echo "Ports for PID $SERVER_PID:"
+          ss -tulp 2>/dev/null | grep "pid=$SERVER_PID" || \
+          netstat -tulp 2>/dev/null | grep "$SERVER_PID/" || \
+          echo "Cannot find ports for this PID"
+          
+          echo "=== STEP 6: CHECK IF GIN SERVER STARTED ==="
+          echo "Looking for GIN debug messages..."
+          grep -i "gin\|listen\|server\|port\|8080" complete_debug.log | head -20 || echo "No GIN messages"
+          
+          echo "=== STEP 7: KILL SERVER ==="
+          kill $SERVER_PID 2>/dev/null || true
