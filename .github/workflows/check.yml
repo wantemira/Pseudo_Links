@@ -15,4 +15,4 @@ jobs:
       - name: Run
         run: |
           cd backend/main-service
-          timeout 15 go run main.go 2>&1 | tail -20 || echo "Exited"
+          timeout 15 go run main.go 2>&1 | tail -20 || echo "Existed"
