@@ -32,6 +32,11 @@ func Init(log *logrus.Logger) *redis.Client {
 		Addr:     fmt.Sprintf("%s:%s", host, port),
 		Password: password,
 		DB:       db,
+
+		DialTimeout:  10 * time.Second,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		PoolTimeout:  30 * time.Second,
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
