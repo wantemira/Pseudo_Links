@@ -12,7 +12,6 @@ jobs:
           go mod tidy
       
   test:
-    needs: [lint]
     runs-on: ubuntu-latest
     services:
       redis:
@@ -23,9 +22,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Install requirements
+        
+      - name: Setup dependencies
         run: |
           cd backend/main-service
+          go mod download
+
       - name: Check Redis logs
         run: |
           docker logs $(docker ps -q -f "ancestor=redis:latest") || true
