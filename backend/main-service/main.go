@@ -99,8 +99,9 @@ func main() {
 
 	router := gin.Default()
 	fmt.Fprintln(os.Stderr, "STEP 6: Router created")
-
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	if os.Getenv("CI") != "true" {
+		router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 	linkGroup := router.Group("/link")
 	{
 		linkGroup.POST("/create", linkHandler.Create)
