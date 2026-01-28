@@ -1,18 +1,79 @@
-name: Working CI
+name: Check
 on: push
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install requirements
+        run: |
+          cd backend/main-service
+          go mod tidy
+      
   test:
+    needs: [lint]
     runs-on: ubuntu-latest
     services:
       redis:
         image: redis:latest
+        ports:
+          - 6379:6379
+        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version: '1.24'
-          cache: true
-      - name: Run
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install requirements
         run: |
           cd backend/main-service
-          timeout 15 go run main.go 2>&1 | tail -20 || echo "Existed"
+      - name: Check Redis logs
+        run: |
+          docker logs $(docker ps -q -f "ancestor=redis:latest") || true
+
+      - name: Wait for Redis to be ready
+        run: |
+          for i in {1..30}; do
+            if nc -z localhost 6379; then
+              echo "Redis is ready"
+              exit 0
+            fi
+            echo "Waiting for Redis..."
+            sleep 1
+          done
+          echo "Redis did not start"
+          exit 1
+          
+      - name: Start server
+        run: |
+          cd backend/main-service
+          nohup go run main.go > server.log 2>&1 & echo $! > server.pid
+          sleep 5
+
+      - name: Show server logs
+        run: |
+          cat backend/main-service/server.log || echo "No server log found"
+
+      - name: Wait for server to be ready
+        run: |
+          for i in {1..15}; do
+            if nc -z localhost 8080; then
+              echo "Server is up"
+              exit 0
+            fi
+            echo "Waiting for server..."
+            sleep 1
+          done
+          echo "Server did not start"
+          cat backend/main-service/server.log
+          exit 1
+      - name: Run tests
+        run: |
+          cd backend/main-service/internal/link
+          go test -v
+
+      - name: Stop server
+        if: always()
+        run: |
+          cd backend/main-service
+          kill $(cat server.pid) || true
+
