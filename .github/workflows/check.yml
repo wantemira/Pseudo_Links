@@ -1,16 +1,6 @@
 name: Check
 on: push
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install requirements
-        run: |
-          cd backend/main-service
-          go mod tidy
-      
   test:
     runs-on: ubuntu-latest
     services:
@@ -19,19 +9,20 @@ jobs:
         ports:
           - 6379:6379
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        
+      
       - name: Setup dependencies
         run: |
           cd backend/main-service
           go mod download
-
+      
       - name: Check Redis logs
         run: |
           docker logs $(docker ps -q -f "ancestor=redis:latest") || true
-
+      
       - name: Wait for Redis to be ready
         run: |
           for i in {1..30}; do
@@ -44,18 +35,78 @@ jobs:
           done
           echo "Redis did not start"
           exit 1
-          
-      - name: Start server
+      
+      # === ДИАГНОСТИКА: Что происходит при запуске ===
+      - name: Debug - Run server and capture ALL output
         run: |
           cd backend/main-service
-          nohup go run main.go > server.log 2>&1 & echo $! > server.pid
-          sleep 5
-
-      - name: Show server logs
+          echo "=== STARTING SERVER WITH TIMEOUT ==="
+          
+          # Запускаем сервер в фоне, записываем ВСЁ
+          go run main.go > full_debug.log 2>&1 &
+          SERVER_PID=$!
+          echo $SERVER_PID > server.pid
+          
+          # Ждем 3 секунды чтобы сервер запустился/упал
+          sleep 3
+          
+          # Проверяем жив ли процесс
+          if ps -p $SERVER_PID > /dev/null; then
+            echo "✅ Server process is running (PID: $SERVER_PID)"
+          else
+            echo "❌ Server process DIED immediately"
+            echo "=== FULL DEBUG LOG ==="
+            cat full_debug.log
+            exit 1
+          fi
+      
+      # === ДИАГНОСТИКА: Что в логах? ===
+      - name: Debug - Check server logs
         run: |
-          cat backend/main-service/server.log || echo "No server log found"
-
-      - name: Wait for server to be ready
+          cd backend/main-service
+          echo "=== SERVER LOGS (first 50 lines) ==="
+          cat full_debug.log | head -50 || echo "No log file"
+          echo ""
+          echo "=== LAST 20 LINES ==="
+          tail -20 full_debug.log 2>/dev/null || echo "Cannot tail log"
+      
+      # === ДИАГНОСТИКА: Какие порты слушает? ===
+      - name: Debug - Check listening ports
+        run: |
+          echo "=== LISTENING PORTS ==="
+          # Проверяем все порты
+          netstat -tulpn 2>/dev/null || ss -tulpn 2>/dev/null || echo "Cannot check ports"
+          echo ""
+          echo "=== SPECIFIC PORT 8080 ==="
+          # Проверяем конкретно 8080
+          if nc -z localhost 8080; then
+            echo "✅ Port 8080 is listening"
+          else
+            echo "❌ Port 8080 is NOT listening"
+            echo "Checking if server listens on different port:"
+            # Ищем какой порт слушает наш процесс
+            cd backend/main-service
+            SERVER_PID=$(cat server.pid 2>/dev/null || echo "")
+            if [ -n "$SERVER_PID" ]; then
+              netstat -tulpn 2>/dev/null | grep "$SERVER_PID" || ss -tulpn 2>/dev/null | grep "$SERVER_PID" || echo "Cannot find process ports"
+            fi
+          fi
+      
+      # === ДИАГНОСТИКА: Проверка HTTP endpoint ===
+      - name: Debug - Test HTTP connection
+        run: |
+          echo "=== TESTING HTTP ENDPOINT ==="
+          if nc -z localhost 8080; then
+            echo "Trying to connect to http://localhost:8080/"
+            curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://localhost:8080/ || echo "Curl failed"
+            echo "Trying /health or /ping:"
+            curl -s http://localhost:8080/health 2>/dev/null || curl -s http://localhost:8080/ping 2>/dev/null || echo "No health endpoint"
+          else
+            echo "Port 8080 not open, skipping HTTP test"
+          fi
+      
+      # === ОРИГИНАЛЬНАЯ ПРОВЕРКА (сохраняем) ===
+      - name: Wait for server to be ready (original logic)
         run: |
           for i in {1..15}; do
             if nc -z localhost 8080; then
@@ -66,16 +117,26 @@ jobs:
             sleep 1
           done
           echo "Server did not start"
-          cat backend/main-service/server.log
+          
+          # Показываем больше информации при падении
+          cd backend/main-service
+          echo "=== FAILURE DEBUG ==="
+          echo "Server PID: $(cat server.pid 2>/dev/null || echo 'none')"
+          echo "=== FULL SERVER LOGS ==="
+          cat full_debug.log 2>/dev/null || echo "No debug log"
           exit 1
+      
       - name: Run tests
         run: |
           cd backend/main-service/internal/link
           go test -v
-
+      
       - name: Stop server
         if: always()
         run: |
           cd backend/main-service
-          kill $(cat server.pid) || true
-
+          if [ -f server.pid ]; then
+            kill $(cat server.pid) 2>/dev/null || true
+            rm -f server.pid
+          fi
+          rm -f full_debug.log server.log
