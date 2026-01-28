@@ -8,6 +8,23 @@ info:
   title: Swagger PseudoLink API
   version: "1.0"
 paths:
+  /{shortID}}:
+    get:
+      consumes:
+      - application/json
+      description: Redirect on url
+      parameters:
+      - description: URL-Link
+        in: path
+        name: shortID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      summary: Redirect url 302
+      tags:
+      - Link
   /link/create:
     post:
       consumes:

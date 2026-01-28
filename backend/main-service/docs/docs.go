@@ -92,6 +92,31 @@ const docTemplate = `{
                 ],
                 "responses": {}
             }
+        },
+        "/{shortID}}": {
+            "get": {
+                "description": "Redirect on url",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Link"
+                ],
+                "summary": "Redirect url 302",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "URL-Link",
+                        "name": "shortID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
         }
     }
 }`
