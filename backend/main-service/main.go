@@ -77,6 +77,9 @@ func main() {
 
 	logger.Info("[ START ]")
 	redisClient := database.Init(logger)
+	if redisClient == nil {
+		logger.Fatal("Cannot connect to Redis - exiting")
+	}
 	defer func() {
 		if err := redisClient.Close(); err != nil {
 			logger.Warnf("TestCreate: error with close %v", err)
