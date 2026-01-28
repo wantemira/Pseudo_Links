@@ -69,6 +69,7 @@ import (
 func main() {
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
+	logger.SetOutput(os.Stderr)
 
 	if os.Getenv("CI") == "true" {
 		gin.SetMode(gin.ReleaseMode)
