@@ -119,7 +119,12 @@ func main() {
 	}()
 
 	logger.Infof("Run server :8080")
-	if err := router.Run(":8080"); err != nil {
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: router,
+	}
+
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Fatalf("Failed to run server: %v", err)
 	}
 	logger.Infof("[ STOP ]")
