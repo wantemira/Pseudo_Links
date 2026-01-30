@@ -3,7 +3,7 @@ package link
 import (
 	"context"
 	"fmt"
-	"main-service/internal/models"
+	"main-service/pkg/models"
 	"time"
 
 	"github.com/redis/go-redis/v9"

@@ -2,7 +2,7 @@ package link
 
 import (
 	"fmt"
-	"main-service/internal/models"
+	"main-service/pkg/models"
 )
 
 // Service provides business logic for link operations

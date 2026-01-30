@@ -1,7 +1,7 @@
 package link
 
 import (
-	"main-service/internal/models"
+	"main-service/pkg/models"
 	"net/http"
 	"strings"
 
